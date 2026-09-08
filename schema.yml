@@ -1,0 +1,473 @@
+openapi: 3.0.3
+info:
+  title: Wrestling Guide Backend API
+  version: 1.0.0
+  description: REST API documentation for the Wrestling Guide mobile application.
+paths:
+  /api/v1/auth/coach/login/:
+    post:
+      operationId: auth_coach_login_create
+      description: Authenticate a coach using email and password. Returns JWT access
+        and refresh tokens.
+      summary: Coach Login
+      tags:
+      - Authentication - Coach
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CoachLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CoachLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CoachLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Login successful
+        '400':
+          description: Invalid credentials or non-coach user
+        '429':
+          description: Rate limit exceeded
+  /api/v1/auth/me/:
+    get:
+      operationId: auth_me_retrieve
+      description: Retrieve essential information for the currently authenticated
+        user session.
+      summary: Current User Details
+      tags:
+      - Authentication - Common
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Current user profile retrieved
+        '401':
+          description: Unauthorized
+  /api/v1/auth/profile-image/:
+    post:
+      operationId: auth_profile_image_create
+      description: Upload or update the authenticated user's profile image. Expects
+        a multipart form submission with field 'profile_image'. Returns the saved
+        image path/URL.
+      summary: Upload Profile Image
+      tags:
+      - Profile Image
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                profile_image:
+                  type: string
+                  format: binary
+                  description: Image file to upload (JPEG, PNG, etc.)
+              required:
+              - profile_image
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Profile image uploaded successfully
+        '400':
+          description: Validation error (missing or invalid image file)
+        '401':
+          description: Unauthorized
+  /api/v1/auth/student/login/:
+    post:
+      operationId: auth_student_login_create
+      description: Authenticate a student using email and password. Returns JWT access
+        and refresh tokens.
+      summary: Student Login
+      tags:
+      - Authentication - Student
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentLoginRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentLoginRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentLoginRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '200':
+          description: Login successful
+        '400':
+          description: Invalid credentials or non-student user
+        '429':
+          description: Rate limit exceeded
+  /api/v1/auth/student/register/:
+    post:
+      operationId: auth_student_register_create
+      description: Register a new student account. Automatically assigns the student
+        to the active coach.
+      summary: Student Registration
+      tags:
+      - Authentication - Student
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudentRegisterRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/StudentRegisterRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/StudentRegisterRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      - {}
+      responses:
+        '201':
+          description: Student registered successfully
+        '400':
+          description: Validation error (e.g. duplicate email, weak password)
+        '429':
+          description: Rate limit exceeded
+  /api/v1/auth/token/refresh/:
+    post:
+      operationId: auth_token_refresh_create
+      description: Obtain a fresh access token using a valid refresh token.
+      summary: Refresh JWT Access Token
+      tags:
+      - Authentication - Common
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/TokenRefreshRequest'
+        required: true
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenRefresh'
+          description: ''
+  /api/v1/coach/change-password/:
+    post:
+      operationId: coach_change_password_create
+      description: Change password for the authenticated coach. Requires old password
+        and a valid new password.
+      summary: Coach Change Password
+      tags:
+      - Coach Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Password changed successfully
+        '400':
+          description: Invalid old password or weak new password
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires COACH role
+  /api/v1/coach/profile/:
+    get:
+      operationId: coach_profile_retrieve
+      description: Retrieve profile details for the authenticated coach.
+      summary: View Coach Profile
+      tags:
+      - Coach Profile
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires COACH role
+    patch:
+      operationId: coach_profile_partial_update
+      description: Update profile fields (first_name, last_name, phone, profile_image)
+        for the authenticated coach.
+      summary: Update Coach Profile
+      tags:
+      - Coach Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedCoachProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedCoachProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedCoachProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Profile updated successfully
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires COACH role
+  /api/v1/coach/students/:
+    get:
+      operationId: coach_students_retrieve
+      description: Retrieve all student profiles assigned to the authenticated coach
+        for the coach dashboard.
+      summary: Coach Dashboard - List Assigned Students
+      tags:
+      - Coach Dashboard
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Student list retrieved successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires COACH role
+  /api/v1/student/change-password/:
+    post:
+      operationId: student_change_password_create
+      description: Change password for the authenticated student. Requires old password
+        and a valid new password.
+      summary: Student Change Password
+      tags:
+      - Student Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+        required: true
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Password changed successfully
+        '400':
+          description: Invalid old password or weak new password
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires STUDENT role
+  /api/v1/student/profile/:
+    get:
+      operationId: student_profile_retrieve
+      description: Retrieve profile details for the authenticated student.
+      summary: View Student Profile
+      tags:
+      - Student Profile
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Profile retrieved successfully
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires STUDENT role
+    patch:
+      operationId: student_profile_partial_update
+      description: Update profile fields (first_name, last_name, phone, profile_image)
+        for the authenticated student.
+      summary: Update Student Profile
+      tags:
+      - Student Profile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentProfileRequest'
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentProfileRequest'
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/PatchedStudentProfileRequest'
+      security:
+      - jwtAuth: []
+      responses:
+        '200':
+          description: Profile updated successfully
+        '400':
+          description: Validation error
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden - requires STUDENT role
+components:
+  schemas:
+    ChangePasswordRequest:
+      type: object
+      properties:
+        old_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+        new_password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - new_password
+      - old_password
+    CoachLoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    PatchedCoachProfileRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          nullable: true
+          title: Phone number
+          maxLength: 20
+        profile_image:
+          type: string
+          format: binary
+          nullable: true
+    PatchedStudentProfileRequest:
+      type: object
+      properties:
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          nullable: true
+          title: Phone number
+          maxLength: 20
+        profile_image:
+          type: string
+          format: binary
+          nullable: true
+    StudentLoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - password
+    StudentRegisterRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+          title: Email address
+          maxLength: 254
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 150
+        phone:
+          type: string
+          nullable: true
+        password:
+          type: string
+          writeOnly: true
+          minLength: 1
+      required:
+      - email
+      - first_name
+      - last_name
+      - password
+    TokenRefresh:
+      type: object
+      properties:
+        access:
+          type: string
+          readOnly: true
+        refresh:
+          type: string
+      required:
+      - access
+      - refresh
+    TokenRefreshRequest:
+      type: object
+      properties:
+        refresh:
+          type: string
+          minLength: 1
+      required:
+      - refresh
+  securitySchemes:
+    jwtAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT

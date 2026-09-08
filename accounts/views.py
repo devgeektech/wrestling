@@ -1,0 +1,263 @@
+from django.conf import settings
+from django.core.mail import send_mail
+from rest_framework import status, permissions, parsers
+from rest_framework.views import APIView
+from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.tokens import RefreshToken
+from drf_spectacular.utils import extend_schema, OpenApiResponse
+
+from accounts.serializers import (
+    LoginSerializer,
+    RegisterSerializer,
+    UserSummarySerializer,
+    UserProfileSerializer,
+    ChangePasswordSerializer,
+    ForgotPasswordSerializer,
+    ResetPasswordSerializer,
+)
+from accounts.throttles import AuthAnonRateThrottle, AuthUserRateThrottle
+from common.responses import success_response, error_response
+
+
+class LoginView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthAnonRateThrottle]
+    serializer_class = LoginSerializer
+
+    @extend_schema(
+        summary="Login",
+        description=(
+            "Authenticate with email and password only. Backend resolves whether the account "
+            "is COACH or STUDENT and returns user.role so the mobile app can open the correct dashboard."
+        ),
+        request=LoginSerializer,
+        responses={
+            200: OpenApiResponse(description="Login successful"),
+            400: OpenApiResponse(description="Invalid credentials"),
+            429: OpenApiResponse(description="Rate limit exceeded"),
+        },
+        tags=["Authentication - Common"]
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = serializer.validated_data['user']
+            refresh = RefreshToken.for_user(user)
+            return success_response("Login successful", {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserSummarySerializer(user).data,
+            })
+        return error_response("Invalid email or password.")
+
+
+class RegisterView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthAnonRateThrottle]
+    serializer_class = RegisterSerializer
+
+    @extend_schema(
+        summary="Register",
+        description=(
+            "Register a new student account with email and password. "
+            "Always creates role=STUDENT and assigns the active coach. "
+            "Coach registration is not available on this endpoint."
+        ),
+        request=RegisterSerializer,
+        responses={
+            201: OpenApiResponse(description="Student registered successfully"),
+            400: OpenApiResponse(description="Validation error"),
+            429: OpenApiResponse(description="Rate limit exceeded"),
+        },
+        tags=["Authentication - Common"]
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            user = serializer.save()
+            return success_response(
+                "Student registered successfully",
+                UserSummarySerializer(user).data,
+                status_code=status.HTTP_201_CREATED,
+            )
+        return error_response("Validation failed", serializer.errors)
+
+
+class ProfileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [parsers.JSONParser, parsers.MultiPartParser, parsers.FormParser]
+    serializer_class = UserProfileSerializer
+
+    @extend_schema(
+        summary="View Profile",
+        description="Retrieve profile for the authenticated user (coach or student), including profile_image URL.",
+        responses={
+            200: OpenApiResponse(description="Profile retrieved successfully"),
+            401: OpenApiResponse(description="Unauthorized"),
+        },
+        tags=["Profile"]
+    )
+    def get(self, request, *args, **kwargs):
+        serializer = self.serializer_class(request.user, context={'request': request})
+        return success_response("Profile retrieved successfully", serializer.data)
+
+    @extend_schema(
+        summary="Update Profile",
+        description=(
+            "Update profile fields and/or profile_image for the authenticated user. "
+            "Accepts JSON or multipart/form-data (use multipart when uploading an image)."
+        ),
+        request={
+            'multipart/form-data': {
+                'type': 'object',
+                'properties': {
+                    'first_name': {'type': 'string'},
+                    'last_name': {'type': 'string'},
+                    'phone': {'type': 'string'},
+                    'profile_image': {
+                        'type': 'string',
+                        'format': 'binary',
+                        'description': 'Optional profile image (JPEG, PNG, etc.)',
+                    },
+                },
+            },
+            'application/json': UserProfileSerializer,
+        },
+        responses={
+            200: OpenApiResponse(description="Profile updated successfully"),
+            400: OpenApiResponse(description="Validation error"),
+            401: OpenApiResponse(description="Unauthorized"),
+        },
+        tags=["Profile"]
+    )
+    def patch(self, request, *args, **kwargs):
+        serializer = self.serializer_class(
+            request.user,
+            data=request.data,
+            partial=True,
+            context={'request': request},
+        )
+        if serializer.is_valid():
+            serializer.save()
+            return success_response("Profile updated successfully", serializer.data)
+        return error_response("Validation failed", serializer.errors)
+
+
+class ChangePasswordView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    throttle_classes = [AuthUserRateThrottle]
+    serializer_class = ChangePasswordSerializer
+
+    @extend_schema(
+        summary="Change Password",
+        description="Change password for the authenticated coach or student.",
+        request=ChangePasswordSerializer,
+        responses={
+            200: OpenApiResponse(description="Password changed successfully"),
+            400: OpenApiResponse(description="Invalid old password or weak new password"),
+            401: OpenApiResponse(description="Unauthorized"),
+        },
+        tags=["Profile"]
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return success_response("Password changed successfully")
+        return error_response("Validation failed", serializer.errors)
+
+
+class ForgotPasswordView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthAnonRateThrottle]
+    serializer_class = ForgotPasswordSerializer
+
+    @extend_schema(
+        summary="Forgot Password",
+        description=(
+            "Request a password reset for a coach or student account (email only). "
+            "Always returns a generic success message to prevent email enumeration. "
+            "When DEBUG is True, reset uid/token are included in the response for local testing; "
+            "in production they are sent by email only. Tokens expire after 1 hour and become "
+            "invalid after a successful password reset."
+        ),
+        request=ForgotPasswordSerializer,
+        responses={
+            200: OpenApiResponse(description="Reset instructions processed"),
+            429: OpenApiResponse(description="Rate limit exceeded"),
+        },
+        tags=["Authentication - Common"]
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        reset_payload = serializer.save()
+
+        if reset_payload:
+            reset_message = (
+                f"Use this link data to reset your Wrestling Guide password:\n\n"
+                f"uid: {reset_payload['uid']}\n"
+                f"token: {reset_payload['token']}\n\n"
+                f"This link expires in 1 hour and can only be used once."
+            )
+            send_mail(
+                subject="Wrestling Guide – Password Reset",
+                message=reset_message,
+                from_email=getattr(settings, 'DEFAULT_FROM_EMAIL', 'noreply@wrestlingguide.local'),
+                recipient_list=[reset_payload['email']],
+                fail_silently=True,
+            )
+
+        data = None
+        if settings.DEBUG and reset_payload:
+            data = {
+                "uid": reset_payload["uid"],
+                "token": reset_payload["token"],
+            }
+
+        return success_response(
+            "If an account exists for this email, password reset instructions have been sent.",
+            data=data,
+        )
+
+
+class ResetPasswordView(APIView):
+    permission_classes = [permissions.AllowAny]
+    throttle_classes = [AuthAnonRateThrottle]
+    serializer_class = ResetPasswordSerializer
+
+    @extend_schema(
+        summary="Reset Password",
+        description=(
+            "Reset password for a coach or student using uid and token from the forgot-password flow. "
+            "After success the token cannot be reused."
+        ),
+        request=ResetPasswordSerializer,
+        responses={
+            200: OpenApiResponse(description="Password reset successfully"),
+            400: OpenApiResponse(description="Invalid/expired token or weak password"),
+            429: OpenApiResponse(description="Rate limit exceeded"),
+        },
+        tags=["Authentication - Common"]
+    )
+    def post(self, request, *args, **kwargs):
+        serializer = self.serializer_class(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return success_response("Password reset successfully")
+        return error_response("Validation failed", serializer.errors)
+
+
+class CustomTokenRefreshView(TokenRefreshView):
+    throttle_classes = [AuthAnonRateThrottle]
+
+    @extend_schema(
+        summary="Refresh JWT Access Token",
+        description="Obtain a fresh access token using a valid refresh token.",
+        tags=["Authentication - Common"]
+    )
+    def post(self, request, *args, **kwargs):
+        response = super().post(request, *args, **kwargs)
+        if response.status_code == 200:
+            return success_response("Token refreshed successfully", response.data)
+        return response
