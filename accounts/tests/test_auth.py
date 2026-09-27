@@ -1,4 +1,5 @@
 from django.urls import reverse
+from django.core import mail
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.contrib.auth.tokens import default_token_generator
 from django.utils.encoding import force_bytes
@@ -42,23 +43,40 @@ class AuthenticationTests(APITestCase):
         self.token_refresh_url = reverse('token-refresh')
 
     def test_student_registration_success(self):
+        from accounts.models import DeviceToken
+
         payload = {
             "first_name": "Amit",
             "last_name": "Patel",
             "email": "amit@example.com",
             "phone": "9876543211",
             "password": "StrongPassword123!",
+            "fcm_token": "register-fcm-token-1",
+            "platform": "android",
         }
+        mail.outbox.clear()
         response = self.client.post(self.register_url, payload, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertTrue(response.data['success'])
-        self.assertEqual(response.data['data']['email'], "amit@example.com")
-        self.assertEqual(response.data['data']['role'], "STUDENT")
+        self.assertIn('access', response.data['data'])
+        self.assertIn('refresh', response.data['data'])
+        self.assertEqual(response.data['data']['user']['email'], "amit@example.com")
+        self.assertEqual(response.data['data']['user']['role'], "STUDENT")
 
         new_user = User.objects.get(email="amit@example.com")
         self.assertTrue(new_user.check_password("StrongPassword123!"))
         self.assertEqual(new_user.coach_assigned, self.coach)
         self.assertEqual(new_user.coach_assigned_id, self.coach.id)
+
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].to, ["amit@example.com"])
+        self.assertIn("Welcome", mail.outbox[0].subject)
+        self.assertIn("Amit Patel", mail.outbox[0].body)
+        self.assertEqual(response.data['data']['fcm_token'], 'register-fcm-token-1')
+        self.assertEqual(response.data['data']['platform'], 'android')
+        self.assertTrue(
+            DeviceToken.objects.filter(user=new_user, token='register-fcm-token-1').exists()
+        )
 
     def test_student_registration_rejects_duplicate_email(self):
         payload = {
@@ -86,24 +104,42 @@ class AuthenticationTests(APITestCase):
         self.assertEqual(created_user.role, User.Roles.STUDENT)
 
     def test_common_login_returns_coach_role(self):
+        from accounts.models import DeviceToken
+
         response = self.client.post(self.login_url, {
             "email": "coach@example.com",
             "password": self.coach_password,
+            "fcm_token": "coach-fcm-token-1",
+            "platform": "android",
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['success'])
         self.assertIn('access', response.data['data'])
         self.assertIn('refresh', response.data['data'])
         self.assertEqual(response.data['data']['user']['role'], "COACH")
+        self.assertEqual(response.data['data']['fcm_token'], 'coach-fcm-token-1')
+        self.assertEqual(response.data['data']['platform'], 'android')
+        self.assertTrue(
+            DeviceToken.objects.filter(user=self.coach, token='coach-fcm-token-1').exists()
+        )
 
     def test_common_login_returns_student_role(self):
+        from accounts.models import DeviceToken
+
         response = self.client.post(self.login_url, {
             "email": "student@example.com",
             "password": self.student_password,
+            "fcm_token": "student-fcm-token-1",
+            "platform": "ios",
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(response.data['success'])
         self.assertEqual(response.data['data']['user']['role'], "STUDENT")
+        self.assertEqual(response.data['data']['fcm_token'], 'student-fcm-token-1')
+        self.assertEqual(response.data['data']['platform'], 'ios')
+        self.assertTrue(
+            DeviceToken.objects.filter(user=self.student, token='student-fcm-token-1').exists()
+        )
 
     def test_login_invalid_password(self):
         response = self.client.post(self.login_url, {
@@ -314,3 +350,31 @@ class AuthenticationTests(APITestCase):
         }, format='json')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertFalse(response.data['success'])
+
+    def test_login_updates_existing_fcm_token(self):
+        from accounts.models import DeviceToken
+
+        first = self.client.post(self.login_url, {
+            "email": "student@example.com",
+            "password": self.student_password,
+            "fcm_token": "student-device-token",
+            "platform": "android",
+        }, format='json')
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(first.data['data']['fcm_token'], 'student-device-token')
+        self.assertEqual(first.data['data']['platform'], 'android')
+
+        updated = self.client.post(self.login_url, {
+            "email": "student@example.com",
+            "password": self.student_password,
+            "fcm_token": "student-device-token",
+            "platform": "ios",
+        }, format='json')
+        self.assertEqual(updated.status_code, status.HTTP_200_OK)
+        self.assertEqual(updated.data['data']['fcm_token'], 'student-device-token')
+        self.assertEqual(updated.data['data']['platform'], 'ios')
+        self.assertEqual(DeviceToken.objects.filter(token='student-device-token').count(), 1)
+        self.assertEqual(
+            DeviceToken.objects.get(token='student-device-token').platform,
+            'ios',
+        )

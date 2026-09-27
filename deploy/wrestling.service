@@ -1,0 +1,21 @@
+[Unit]
+Description=Wrestling Guide Gunicorn
+After=network.target postgresql.service
+Requires=postgresql.service
+
+[Service]
+User=wrestling
+Group=wrestling
+WorkingDirectory=/opt/wrestling
+EnvironmentFile=/opt/wrestling/.env
+Environment=DJANGO_SETTINGS_MODULE=config.settings.production
+ExecStart=/opt/wrestling/venv/bin/gunicorn \
+    --config /opt/wrestling/deploy/gunicorn.conf.py \
+    config.wsgi:application
+Restart=always
+RestartSec=5
+# Large video uploads / AI
+LimitNOFILE=65535
+
+[Install]
+WantedBy=multi-user.target

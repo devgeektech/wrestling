@@ -8,6 +8,7 @@ from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import serializers
 
 from accounts.models import User
+from common.media_urls import absolute_media_url
 
 
 class UserSummarySerializer(serializers.ModelSerializer):
@@ -20,10 +21,19 @@ class LoginSerializer(serializers.Serializer):
     """
     Common login — mobile sends email + password only.
     Backend resolves COACH vs STUDENT from the database.
+    Optional fcm_token from the mobile app is saved/updated and echoed in the auth response.
     """
 
     email = serializers.EmailField(required=True)
     password = serializers.CharField(write_only=True, required=True)
+    fcm_token = serializers.CharField(
+        required=False, allow_blank=True, max_length=512, trim_whitespace=True
+    )
+    platform = serializers.ChoiceField(
+        choices=['ios', 'android', 'unknown'],
+        required=False,
+        default='unknown',
+    )
 
     def validate(self, attrs):
         email = attrs.get('email', '').strip().lower()
@@ -48,14 +58,34 @@ class RegisterSerializer(serializers.ModelSerializer):
     """
     Public registration creates STUDENT accounts only.
     Coach self-registration remains disabled / seed-only for now.
+    Optional fcm_token from the mobile app is saved and echoed in the auth response.
     """
 
     password = serializers.CharField(write_only=True, required=True)
     phone = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    fcm_token = serializers.CharField(
+        required=False, allow_blank=True, max_length=512, trim_whitespace=True, write_only=True
+    )
+    platform = serializers.ChoiceField(
+        choices=['ios', 'android', 'unknown'],
+        required=False,
+        default='unknown',
+        write_only=True,
+    )
 
     class Meta:
         model = User
-        fields = ('id', 'email', 'first_name', 'last_name', 'phone', 'password', 'role')
+        fields = (
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'phone',
+            'password',
+            'role',
+            'fcm_token',
+            'platform',
+        )
         read_only_fields = ('id', 'role')
 
     def validate_email(self, value):
@@ -74,6 +104,8 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop('password')
         validated_data.pop('role', None)
+        validated_data.pop('fcm_token', None)
+        validated_data.pop('platform', None)
 
         active_coach = User.objects.filter(role=User.Roles.COACH, is_active=True).first()
         user = User.objects.create_user(
@@ -147,13 +179,9 @@ class UserProfileSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         data = super().to_representation(instance)
-        request = self.context.get('request')
-        if instance.profile_image and request:
-            data['profile_image'] = request.build_absolute_uri(instance.profile_image.url)
-        elif instance.profile_image:
-            data['profile_image'] = instance.profile_image.url
-        else:
-            data['profile_image'] = None
+        data['profile_image'] = absolute_media_url(
+            instance.profile_image, self.context.get('request')
+        )
         return data
 
 

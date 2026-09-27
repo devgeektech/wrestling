@@ -18,12 +18,31 @@ db.sqlite3-journal
 media/
 staticfiles/
 
-# Environment variables
+# Environment variables / secrets
 .env
 .env.local
+deploy/.secret_key.tmp
+
+# Firebase Admin SDK credentials (never commit)
+*firebase-adminsdk*.json
+wrerstlingapp-firebase-adminsdk.json
+
+# Local / tunnel junk (never deploy)
+body.txt
+*.pem
+*.ts.net.crt
+*.ts.net.key
+desktop-*.ts.net.crt
+desktop-*.ts.net.key
+ai_pipeline copy.py
+wrestling-deploy.tgz
+
+# Local-only Tailscale helper (not used on EC2)
+scripts/start-tailscale-api.ps1
 
 # IDEs and Editors
 .vscode/
 .idea/
 *.swp
 *.swo
+.cursor/

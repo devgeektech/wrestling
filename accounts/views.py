@@ -16,7 +16,22 @@ from accounts.serializers import (
     ResetPasswordSerializer,
 )
 from accounts.throttles import AuthAnonRateThrottle, AuthUserRateThrottle
+from common.email import send_student_welcome_email
+from common.notifications import upsert_device_token
 from common.responses import success_response, error_response
+
+
+def _auth_payload(user, *, fcm_token=None, platform='unknown'):
+    """JWT + user summary, plus saved/updated FCM token echo for mobile."""
+    device = upsert_device_token(user, fcm_token, platform or 'unknown')
+    refresh = RefreshToken.for_user(user)
+    return {
+        "access": str(refresh.access_token),
+        "refresh": str(refresh),
+        "user": UserSummarySerializer(user).data,
+        "fcm_token": device.token if device else None,
+        "platform": device.platform if device else None,
+    }
 
 
 class LoginView(APIView):
@@ -27,8 +42,10 @@ class LoginView(APIView):
     @extend_schema(
         summary="Login",
         description=(
-            "Authenticate with email and password only. Backend resolves whether the account "
-            "is COACH or STUDENT and returns user.role so the mobile app can open the correct dashboard."
+            "Authenticate with email and password. Backend resolves whether the account "
+            "is COACH or STUDENT and returns user.role. "
+            "Send the current device `fcm_token` (+ optional `platform`); it is updated "
+            "and returned in the response."
         ),
         request=LoginSerializer,
         responses={
@@ -42,12 +59,14 @@ class LoginView(APIView):
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
             user = serializer.validated_data['user']
-            refresh = RefreshToken.for_user(user)
-            return success_response("Login successful", {
-                "access": str(refresh.access_token),
-                "refresh": str(refresh),
-                "user": UserSummarySerializer(user).data,
-            })
+            return success_response(
+                "Login successful",
+                _auth_payload(
+                    user,
+                    fcm_token=serializer.validated_data.get('fcm_token'),
+                    platform=serializer.validated_data.get('platform') or 'unknown',
+                ),
+            )
         return error_response("Invalid email or password.")
 
 
@@ -61,11 +80,14 @@ class RegisterView(APIView):
         description=(
             "Register a new student account with email and password. "
             "Always creates role=STUDENT and assigns the active coach. "
-            "Coach registration is not available on this endpoint."
+            "Returns access and refresh tokens (same shape as login) so the client "
+            "can authenticate immediately. "
+            "Send device `fcm_token` (+ optional `platform`); it is saved and returned "
+            "in the response. Coach registration is not available on this endpoint."
         ),
         request=RegisterSerializer,
         responses={
-            201: OpenApiResponse(description="Student registered successfully"),
+            201: OpenApiResponse(description="Student registered successfully; returns access, refresh, user, fcm_token"),
             400: OpenApiResponse(description="Validation error"),
             429: OpenApiResponse(description="Rate limit exceeded"),
         },
@@ -74,10 +96,13 @@ class RegisterView(APIView):
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data, context={'request': request})
         if serializer.is_valid():
+            fcm_token = serializer.validated_data.get('fcm_token')
+            platform = serializer.validated_data.get('platform') or 'unknown'
             user = serializer.save()
+            send_student_welcome_email(user)
             return success_response(
                 "Student registered successfully",
-                UserSummarySerializer(user).data,
+                _auth_payload(user, fcm_token=fcm_token, platform=platform),
                 status_code=status.HTTP_201_CREATED,
             )
         return error_response("Validation failed", serializer.errors)
@@ -176,14 +201,14 @@ class ForgotPasswordView(APIView):
         summary="Forgot Password",
         description=(
             "Request a password reset for a coach or student account (email only). "
-            "Always returns a generic success message to prevent email enumeration. "
-            "When DEBUG is True, reset uid/token are included in the response for local testing; "
-            "in production they are sent by email only. Tokens expire after 1 hour and become "
-            "invalid after a successful password reset."
+            "When the account exists, `data.uid` and `data.token` are returned for the mobile "
+            "reset step (`POST /auth/reset-password/` with uid, token, new_password). "
+            "A reset email is also sent when mail is configured. Tokens expire after 1 hour and "
+            "become invalid after a successful password reset."
         ),
         request=ForgotPasswordSerializer,
         responses={
-            200: OpenApiResponse(description="Reset instructions processed"),
+            200: OpenApiResponse(description="Reset instructions processed; data may include uid/token"),
             429: OpenApiResponse(description="Rate limit exceeded"),
         },
         tags=["Authentication - Common"]
@@ -209,7 +234,7 @@ class ForgotPasswordView(APIView):
             )
 
         data = None
-        if settings.DEBUG and reset_payload:
+        if settings.PASSWORD_RESET_RETURN_TOKEN_IN_RESPONSE and reset_payload:
             data = {
                 "uid": reset_payload["uid"],
                 "token": reset_payload["token"],

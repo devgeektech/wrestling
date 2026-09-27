@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractBaseUser
 from django.db import models
 from django.utils.translation import gettext_lazy as _
@@ -69,3 +70,34 @@ class User(AbstractBaseUser):
     @property
     def is_student(self):
         return self.role == self.Roles.STUDENT
+
+
+class DeviceToken(models.Model):
+    """FCM device token for push notifications (one user, many devices)."""
+
+    class Platform(models.TextChoices):
+        IOS = 'ios', _('iOS')
+        ANDROID = 'android', _('Android')
+        UNKNOWN = 'unknown', _('Unknown')
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='device_tokens',
+    )
+    token = models.CharField(max_length=512, unique=True, db_index=True)
+    platform = models.CharField(
+        max_length=16,
+        choices=Platform.choices,
+        default=Platform.UNKNOWN,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = _('device token')
+        verbose_name_plural = _('device tokens')
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return f"{self.user_id} ({self.platform})"

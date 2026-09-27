@@ -27,6 +27,19 @@ class IsStudent(BasePermission):
         )
 
 
+class IsCoachOrStudent(BasePermission):
+    """
+    Allows access to authenticated COACH or STUDENT users.
+    """
+    def has_permission(self, request, view):
+        return bool(
+            request.user and
+            request.user.is_authenticated and
+            request.user.is_active and
+            getattr(request.user, 'role', None) in ('COACH', 'STUDENT')
+        )
+
+
 class IsOwner(BasePermission):
     """
     Object-level permission to allow users to access/modify only their own objects.
