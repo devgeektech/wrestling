@@ -3,18 +3,21 @@
 ## Target
 
 - Host: `16.16.113.6` (Elastic IP)
+- Public HTTPS hostname: `16.16.113.6.sslip.io` (Let's Encrypt trusted cert)
 - User: `ubuntu`
 - App: `/opt/wrestling` (git checkout of `origin/main`)
-- HTTPS: self-signed cert (browser warning expected)
+- HTTPS: Let's Encrypt via Certbot (auto-renew); issued for `16.16.113.6.sslip.io`
 - Media: S3 `vision-quest-ai-videos` / `eu-north-1` via IAM role `VisionQuestEC2S3Role`
 - Git remote on EC2: `git@github.com:devgeektech/wrestling.git` (`main`)
 
 ## Flutter / clients
 
-Base URL: `https://16.16.113.6/api/v1/`  
-Swagger: `https://16.16.113.6/api/docs/`
+Use the **hostname**, not the raw IP (mobile TLS rejects IP + self-signed):
 
-Allow self-signed TLS in debug HTTP clients until you add a real domain.
+Base URL: `https://16.16.113.6.sslip.io/api/v1/`  
+Swagger: `https://16.16.113.6.sslip.io/api/docs/`
+
+Do **not** point Dio at `https://16.16.113.6/` — certificate name will not match.
 
 ## Git-based updates (preferred)
 
