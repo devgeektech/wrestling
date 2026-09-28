@@ -5,14 +5,12 @@ from accounts.models import User
 class Command(BaseCommand):
     help = 'Seeds/creates the initial coach user account (login only — no public coach register).'
 
-    DEFAULT_EMAIL = 'coach@yopmail.com'
-    DEFAULT_PASSWORD = '!@#coach!@#'
     DEFAULT_FIRST_NAME = 'Coach'
     DEFAULT_LAST_NAME = 'Admin'
 
     def add_arguments(self, parser):
-        parser.add_argument('--email', type=str, help='Coach email address', default=self.DEFAULT_EMAIL)
-        parser.add_argument('--password', type=str, help='Coach password', default=self.DEFAULT_PASSWORD)
+        parser.add_argument('--email', type=str, required=True, help='Coach email address')
+        parser.add_argument('--password', type=str, required=True, help='Coach password')
         parser.add_argument('--first-name', type=str, help='Coach first name', default=self.DEFAULT_FIRST_NAME)
         parser.add_argument('--last-name', type=str, help='Coach last name', default=self.DEFAULT_LAST_NAME)
         parser.add_argument('--phone', type=str, help='Coach phone number', default='')

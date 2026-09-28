@@ -36,6 +36,7 @@ desktop-*.ts.net.crt
 desktop-*.ts.net.key
 ai_pipeline copy.py
 wrestling-deploy.tgz
+*.bundle
 
 # Local-only Tailscale helper (not used on EC2)
 scripts/start-tailscale-api.ps1

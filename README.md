@@ -103,26 +103,19 @@ python manage.py migrate
 
 ## 👤 Seed Initial Coach User
 
-To initialize the coach account, run the seed command (uses default credentials automatically):
+To initialize the coach account, run the seed command with required `--email` and `--password` (no defaults are shipped in the repo):
 
 ```bash
-python manage.py create_initial_coach
+python manage.py create_initial_coach --email your-coach@example.com --password "YourSecurePassword"
 ```
 
-**Default coach credentials:**
+Optional name flags:
 
-| Field | Value |
-| :--- | :--- |
-| Email | `coach@yopmail.com` |
-| Password | `!@#coach!@#` |
+```bash
+python manage.py create_initial_coach --email your-coach@example.com --password "YourSecurePassword" --first-name John --last-name Coach
+```
 
 There is **no public coach registration** yet. Coach registration code is prepared and gated by `ALLOW_COACH_REGISTRATION=False`. Enable later when needed.
-
-To override with custom credentials:
-
-```bash
-python manage.py create_initial_coach --email custom@email.com --password "YourPassword" --first-name John --last-name Coach
-```
 
 ---
 
