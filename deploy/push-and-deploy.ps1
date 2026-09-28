@@ -25,6 +25,6 @@ Write-Host "==> Pushing origin main..."
 git push origin main
 
 Write-Host "==> Updating EC2 ($SshUser@$HostName)..."
-ssh -i $Pem -o StrictHostKeyChecking=accept-new "${SshUser}@${HostName}" "sudo /opt/wrestling/deploy/server-update.sh"
+ssh -i $Pem -o StrictHostKeyChecking=accept-new "${SshUser}@${HostName}" "sudo bash /opt/wrestling/deploy/server-update.sh"
 
 Write-Host "==> Done. Smoke: https://$HostName/api/docs/"
