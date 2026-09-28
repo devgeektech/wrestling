@@ -12,12 +12,12 @@
 
 ## Flutter / clients
 
-Use the **hostname**, not the raw IP (mobile TLS rejects IP + self-signed):
+API is hostname-only (raw Elastic IP is not served):
 
 Base URL: `https://16.16.113.6.sslip.io/api/v1/`  
 Swagger: `https://16.16.113.6.sslip.io/api/docs/`
 
-Do **not** point Dio at `https://16.16.113.6/` — certificate name will not match.
+`https://16.16.113.6/` is closed on HTTPS; HTTP to the IP redirects to the hostname.
 
 ## Git-based updates (preferred)
 
