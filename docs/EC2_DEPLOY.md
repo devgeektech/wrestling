@@ -3,10 +3,11 @@
 ## Target
 
 - Host: `16.16.113.6` (Elastic IP)
-- Public HTTPS hostname: `16.16.113.6.sslip.io` (Let's Encrypt trusted cert)
+- Public HTTPS hostname: `api.visionquestsync.com` (Let's Encrypt trusted cert)
+- Legacy hostname (still served): `16.16.113.6.sslip.io`
 - User: `ubuntu`
 - App: `/opt/wrestling` (git checkout of `origin/main`)
-- HTTPS: Let's Encrypt via Certbot (auto-renew); issued for `16.16.113.6.sslip.io`
+- HTTPS: Let's Encrypt via Certbot (auto-renew); issued for `api.visionquestsync.com`
 - Media: S3 `vision-quest-ai-videos` / `eu-north-1` via IAM role `VisionQuestEC2S3Role`
 - Git remote on EC2: `git@github.com:devgeektech/wrestling.git` (`main`)
 
@@ -14,10 +15,12 @@
 
 API is hostname-only (raw Elastic IP is not served):
 
-Base URL: `https://16.16.113.6.sslip.io/api/v1/`  
-Swagger: `https://16.16.113.6.sslip.io/api/docs/`
+Base URL: `https://api.visionquestsync.com/api/v1/`  
+Swagger: `https://api.visionquestsync.com/api/docs/`
 
-`https://16.16.113.6/` is closed on HTTPS; HTTP to the IP redirects to the hostname.
+Legacy (until apps switch): `https://16.16.113.6.sslip.io/api/v1/`  
+
+`https://16.16.113.6/` is closed on HTTPS; HTTP to the IP redirects to `api.visionquestsync.com`.
 
 ## Git-based updates (preferred)
 
