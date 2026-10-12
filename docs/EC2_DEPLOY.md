@@ -4,7 +4,6 @@
 
 - Host: `16.16.113.6` (Elastic IP)
 - Public HTTPS hostname: `api.visionquestsync.com` (Let's Encrypt trusted cert)
-- Legacy hostname (still served): `16.16.113.6.sslip.io`
 - User: `ubuntu`
 - App: `/opt/wrestling` (git checkout of `origin/main`)
 - HTTPS: Let's Encrypt via Certbot (auto-renew); issued for `api.visionquestsync.com`
@@ -17,8 +16,6 @@ API is hostname-only (raw Elastic IP is not served):
 
 Base URL: `https://api.visionquestsync.com/api/v1/`  
 Swagger: `https://api.visionquestsync.com/api/docs/`
-
-Legacy (until apps switch): `https://16.16.113.6.sslip.io/api/v1/`  
 
 `https://16.16.113.6/` is closed on HTTPS; HTTP to the IP redirects to `api.visionquestsync.com`.
 
