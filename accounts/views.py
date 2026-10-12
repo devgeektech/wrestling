@@ -6,6 +6,7 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from rest_framework_simplejwt.tokens import RefreshToken
 from drf_spectacular.utils import extend_schema, OpenApiResponse
 
+from accounts.models import Notification
 from accounts.serializers import (
     LoginSerializer,
     RegisterSerializer,
@@ -14,10 +15,12 @@ from accounts.serializers import (
     ChangePasswordSerializer,
     ForgotPasswordSerializer,
     ResetPasswordSerializer,
+    NotificationSerializer,
 )
 from accounts.throttles import AuthAnonRateThrottle, AuthUserRateThrottle
 from common.email import send_student_welcome_email
 from common.notifications import upsert_device_token
+from common.permissions import IsCoachOrStudent
 from common.responses import success_response, error_response
 
 
@@ -286,3 +289,74 @@ class CustomTokenRefreshView(TokenRefreshView):
         if response.status_code == 200:
             return success_response("Token refreshed successfully", response.data)
         return response
+
+
+class NotificationListView(APIView):
+    """List in-app notifications for the logged-in coach or student."""
+
+    permission_classes = [IsCoachOrStudent]
+
+    @extend_schema(
+        summary="List my notifications",
+        description=(
+            "Returns notifications for the authenticated user (coach or student), newest first. "
+            "Optional query `unread_only=true` filters unread items. "
+            "Also returns `unread_count`."
+        ),
+        responses={200: OpenApiResponse(description="Notification list")},
+        tags=["Notifications"],
+    )
+    def get(self, request, *args, **kwargs):
+        qs = Notification.objects.filter(user=request.user)
+        unread_count = qs.filter(is_read=False).count()
+        unread_only = str(request.query_params.get('unread_only', '')).lower() in (
+            '1',
+            'true',
+            't',
+            'yes',
+        )
+        if unread_only:
+            qs = qs.filter(is_read=False)
+        serializer = NotificationSerializer(qs[:100], many=True)
+        return success_response(
+            "Notifications loaded",
+            {
+                "unread_count": unread_count,
+                "results": serializer.data,
+            },
+        )
+
+
+class NotificationMarkReadView(APIView):
+    permission_classes = [IsCoachOrStudent]
+
+    @extend_schema(
+        summary="Mark one notification as read",
+        responses={
+            200: OpenApiResponse(description="Marked as read"),
+            404: OpenApiResponse(description="Not found"),
+        },
+        tags=["Notifications"],
+    )
+    def post(self, request, notification_id, *args, **kwargs):
+        try:
+            note = Notification.objects.get(id=notification_id, user=request.user)
+        except Notification.DoesNotExist:
+            return error_response("Notification not found", status_code=status.HTTP_404_NOT_FOUND)
+        if not note.is_read:
+            note.is_read = True
+            note.save(update_fields=['is_read'])
+        return success_response("Notification marked as read", NotificationSerializer(note).data)
+
+
+class NotificationMarkAllReadView(APIView):
+    permission_classes = [IsCoachOrStudent]
+
+    @extend_schema(
+        summary="Mark all my notifications as read",
+        responses={200: OpenApiResponse(description="All marked as read")},
+        tags=["Notifications"],
+    )
+    def post(self, request, *args, **kwargs):
+        updated = Notification.objects.filter(user=request.user, is_read=False).update(is_read=True)
+        return success_response("All notifications marked as read", {"updated": updated})

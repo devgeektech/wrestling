@@ -7,6 +7,9 @@ from accounts.views import (
     ForgotPasswordView,
     ResetPasswordView,
     CustomTokenRefreshView,
+    NotificationListView,
+    NotificationMarkReadView,
+    NotificationMarkAllReadView,
 )
 
 urlpatterns = [
@@ -17,4 +20,11 @@ urlpatterns = [
     path('auth/profile/', ProfileView.as_view(), name='profile'),
     path('auth/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('auth/token/refresh/', CustomTokenRefreshView.as_view(), name='token-refresh'),
+    path('notifications/', NotificationListView.as_view(), name='notifications-list'),
+    path('notifications/read-all/', NotificationMarkAllReadView.as_view(), name='notifications-read-all'),
+    path(
+        'notifications/<int:notification_id>/read/',
+        NotificationMarkReadView.as_view(),
+        name='notifications-mark-read',
+    ),
 ]

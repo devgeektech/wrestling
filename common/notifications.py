@@ -1,4 +1,4 @@
-"""FCM push notification helpers."""
+"""FCM push + in-app notification helpers."""
 
 from __future__ import annotations
 
@@ -65,6 +65,37 @@ def _ensure_firebase():
     except Exception:
         logger.exception('FCM: failed to initialize Firebase')
         return None
+
+
+def _persist_notification(
+    user,
+    *,
+    title: str,
+    body: str,
+    data: dict[str, Any] | None = None,
+):
+    """Save inbox row for the user. Returns Notification or None."""
+    if user is None:
+        return None
+
+    from accounts.models import Notification
+
+    payload = {str(k): v for k, v in (data or {}).items()}
+    ntype = str(payload.get('type') or '').strip()
+    valid_types = {c.value for c in Notification.Type}
+    if ntype not in valid_types:
+        logger.warning('Notification skipped: unknown type %r for user=%s', ntype, getattr(user, 'id', None))
+        return None
+
+    # JSONField-friendly: stringify nested values for FCM parity
+    safe_data = {str(k): str(v) for k, v in payload.items()}
+    return Notification.objects.create(
+        user=user,
+        type=ntype,
+        title=title,
+        body=body,
+        data=safe_data,
+    )
 
 
 def send_fcm_to_user(
@@ -137,6 +168,24 @@ def send_fcm_to_user(
     return sent
 
 
+def notify_user(
+    user,
+    *,
+    title: str,
+    body: str,
+    data: dict[str, Any] | None = None,
+) -> int:
+    """
+    Persist an in-app notification, then attempt FCM push.
+    Inbox row is saved even when the user has no device tokens.
+    """
+    try:
+        _persist_notification(user, title=title, body=body, data=data)
+    except Exception:
+        logger.exception('Failed to persist notification for user=%s', getattr(user, 'id', None))
+    return send_fcm_to_user(user, title=title, body=body, data=data)
+
+
 def notify_video_pending_review(video) -> None:
     """Coach: video ready for review. Student: analysis ready."""
     student = video.student
@@ -147,7 +196,7 @@ def notify_video_pending_review(video) -> None:
         student_name = student.get_full_name() or student.email
 
     if coach:
-        send_fcm_to_user(
+        notify_user(
             coach,
             title='Video ready for review',
             body=f'{student_name or "A student"} submitted "{title_student}" for review.',
@@ -158,7 +207,7 @@ def notify_video_pending_review(video) -> None:
         )
 
     if student:
-        send_fcm_to_user(
+        notify_user(
             student,
             title='Analysis complete',
             body=f'AI analysis for "{title_student}" is ready. Waiting for coach review.',
@@ -175,7 +224,7 @@ def notify_video_approved(video) -> None:
     if not student:
         return
     title_student = video.title or 'Your video'
-    send_fcm_to_user(
+    notify_user(
         student,
         title='Video approved',
         body=f'Your coach approved "{title_student}".',

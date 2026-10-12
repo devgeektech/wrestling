@@ -101,3 +101,32 @@ class DeviceToken(models.Model):
 
     def __str__(self):
         return f"{self.user_id} ({self.platform})"
+
+
+class Notification(models.Model):
+    """In-app notification inbox row (coach or student). Also mirrored to FCM when possible."""
+
+    class Type(models.TextChoices):
+        VIDEO_PENDING_REVIEW = 'VIDEO_PENDING_REVIEW', _('Video pending review')
+        ANALYSIS_READY = 'ANALYSIS_READY', _('Analysis ready')
+        VIDEO_APPROVED = 'VIDEO_APPROVED', _('Video approved')
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='notifications',
+    )
+    type = models.CharField(max_length=64, choices=Type.choices, db_index=True)
+    title = models.CharField(max_length=200)
+    body = models.TextField()
+    data = models.JSONField(default=dict, blank=True)
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = _('notification')
+        verbose_name_plural = _('notifications')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.user_id} {self.type} read={self.is_read}"

@@ -7,7 +7,7 @@ from django.utils.encoding import force_bytes, force_str
 from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from rest_framework import serializers
 
-from accounts.models import User
+from accounts.models import Notification, User
 from common.media_urls import absolute_media_url
 
 
@@ -274,3 +274,18 @@ class ResetPasswordSerializer(serializers.Serializer):
         user.set_password(self.validated_data['new_password'])
         user.save(update_fields=['password', 'updated_at'])
         return user
+
+
+class NotificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Notification
+        fields = (
+            'id',
+            'type',
+            'title',
+            'body',
+            'data',
+            'is_read',
+            'created_at',
+        )
+        read_only_fields = fields
