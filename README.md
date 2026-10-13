@@ -212,6 +212,15 @@ Interactive Swagger UI and OpenAPI 3 schema endpoints:
 
 ---
 
+## 📄 Legal pages (HTML)
+
+Public pages for the mobile app (open in browser / WebView). Dummy placeholder text for now.
+
+| Page | URL |
+| :--- | :--- |
+| Terms & Conditions | `https://api.visionquestsync.com/terms/` |
+| Privacy Policy | `https://api.visionquestsync.com/privacy/` |
+
 ## 📡 API Endpoint Summary for Mobile Developers
 
 Base API Path: `/api/v1/`

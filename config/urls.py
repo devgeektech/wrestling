@@ -6,8 +6,13 @@ from drf_spectacular.views import (
 )
 
 from common.media import serve_media
+from common.views import PrivacyPolicyView, TermsOfServiceView
 
 urlpatterns = [
+    # Public legal pages (HTML — for mobile WebView / browser)
+    path('terms/', TermsOfServiceView.as_view(), name='terms'),
+    path('privacy/', PrivacyPolicyView.as_view(), name='privacy'),
+
     # API Version 1 routes (auth + profile live in accounts)
     path('api/v1/', include('accounts.urls')),
     # Student dashboard + video upload
