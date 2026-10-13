@@ -17,10 +17,11 @@ from accounts.serializers import (
     ResetPasswordSerializer,
     NotificationSerializer,
 )
+from accounts.services import hard_delete_student
 from accounts.throttles import AuthAnonRateThrottle, AuthUserRateThrottle
 from common.email import send_student_welcome_email
 from common.notifications import upsert_device_token
-from common.permissions import IsCoachOrStudent
+from common.permissions import IsCoachOrStudent, IsStudent
 from common.responses import success_response, error_response
 
 
@@ -193,6 +194,34 @@ class ChangePasswordView(APIView):
             serializer.save()
             return success_response("Password changed successfully")
         return error_response("Validation failed", serializer.errors)
+
+
+class AccountDeleteView(APIView):
+    """Hard-delete the authenticated student and related data. No request body."""
+
+    permission_classes = [IsStudent]
+    throttle_classes = [AuthUserRateThrottle]
+
+    @extend_schema(
+        summary="Delete student account",
+        description=(
+            "Permanently deletes the authenticated student account and related data "
+            "(videos, analysis, frames, device tokens, notifications). Also removes "
+            "coach inbox notifications that reference the student's videos. "
+            "No password re-entry. Coaches cannot use this endpoint. "
+            "Client should clear JWT tokens after success."
+        ),
+        request=None,
+        responses={
+            200: OpenApiResponse(description="Account deleted successfully"),
+            401: OpenApiResponse(description="Unauthorized"),
+            403: OpenApiResponse(description="Forbidden (coach or inactive)"),
+        },
+        tags=["Profile"],
+    )
+    def delete(self, request, *args, **kwargs):
+        hard_delete_student(request.user)
+        return success_response("Account deleted successfully")
 
 
 class ForgotPasswordView(APIView):

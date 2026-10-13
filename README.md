@@ -248,6 +248,7 @@ Requires `FIREBASE_CREDENTIALS_FILE` pointing at a Firebase service account JSON
 | `GET` | `/api/v1/auth/profile/` | View own profile (`role`, `coach_id`, `profile_image` URL) | Bearer JWT |
 | `PATCH` | `/api/v1/auth/profile/` | Edit profile fields and/or upload `profile_image` (JSON or multipart) | Bearer JWT |
 | `POST` | `/api/v1/auth/change-password/` | Change password | Bearer JWT |
+| `DELETE` | `/api/v1/auth/account/` | Hard-delete student account + related data (videos, analysis, tokens, notifications; also coach inbox rows for those videos). No body. Client should clear JWT after success. | Bearer JWT (student) |
 
 ### Videos (Common list & detail)
 
