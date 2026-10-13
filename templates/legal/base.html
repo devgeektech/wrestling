@@ -1,72 +1,101 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Vision Quest{% endblock %}</title>
+  <title>{% block title %}Vision Quest Sync{% endblock %}</title>
   <style>
     :root {
-      --bg: #f7f5f1;
-      --ink: #1a1a1a;
-      --muted: #5c5c5c;
-      --accent: #c45c26;
-      --line: #ddd6cc;
+      --bg: #000000;
+      --surface: #0a0a0a;
+      --ink: #ffffff;
+      --muted: #9aa3ad;
+      --accent: #00aeef;
+      --accent-deep: #0072ce;
+      --silver: #c8cdd3;
+      --line: #1e2430;
     }
     * { box-sizing: border-box; }
     body {
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
-      background: var(--bg);
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -10%, rgba(0, 174, 239, 0.18), transparent 55%),
+        var(--bg);
       color: var(--ink);
       line-height: 1.65;
     }
-    header {
-      padding: 1.5rem 1.25rem 0.75rem;
-      border-bottom: 1px solid var(--line);
-      background: #fff;
+    .brand-wrap {
+      display: flex;
+      justify-content: center;
+      padding: 2rem 1.25rem 0.5rem;
     }
-    header .brand {
-      font-family: system-ui, -apple-system, sans-serif;
-      font-size: 0.8rem;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--accent);
-      font-weight: 700;
-    }
-    header h1 {
-      margin: 0.35rem 0 0;
-      font-size: 1.75rem;
-      font-weight: 700;
+    .brand-wrap img {
+      display: block;
+      width: min(280px, 72vw);
+      height: auto;
     }
     main {
       max-width: 42rem;
       margin: 0 auto;
-      padding: 1.75rem 1.25rem 3rem;
+      padding: 1rem 1.25rem 3rem;
+    }
+    main h1 {
+      margin: 0 0 0.75rem;
+      font-size: clamp(1.5rem, 4vw, 1.85rem);
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--ink);
+      text-align: left;
+    }
+    .accent-rule {
+      width: 3.5rem;
+      height: 3px;
+      margin: 0 0 1.25rem;
+      border: 0;
+      background: linear-gradient(90deg, var(--accent), var(--accent-deep));
     }
     p, li { color: var(--ink); }
     .muted { color: var(--muted); font-size: 0.95rem; }
     h2 {
       margin-top: 1.75rem;
-      font-size: 1.15rem;
+      margin-bottom: 0.5rem;
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--accent);
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
     }
     ul { padding-left: 1.25rem; }
+    a { color: var(--accent); }
+    a:hover { color: #5cd0ff; }
     footer {
       max-width: 42rem;
       margin: 0 auto;
       padding: 0 1.25rem 2.5rem;
-      font-family: system-ui, -apple-system, sans-serif;
       font-size: 0.85rem;
       color: var(--muted);
+      border-top: 1px solid var(--line);
+      padding-top: 1.25rem;
     }
-    footer a { color: var(--accent); }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
   </style>
 </head>
 <body>
-  <header>
-    <div class="brand">Vision Quest Sync</div>
-    <h1>{% block heading %}{% endblock %}</h1>
-  </header>
+  <div class="brand-wrap">
+    <img
+      src="{% static 'branding/vision-quest-sync-logo.png' %}"
+      alt="Vision Quest Sync"
+      width="280"
+      height="280"
+    >
+  </div>
   <main>
+    <h1>{% block heading %}{% endblock %}</h1>
+    <hr class="accent-rule">
     {% block content %}{% endblock %}
   </main>
   <footer>
